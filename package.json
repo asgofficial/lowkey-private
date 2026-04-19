@@ -1,0 +1,16 @@
+{
+  "name": "lowkey-private",
+  "version": "1.0.0",
+  "description": "Universal Consent Manager — transparent proxy-based cookie firewall",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "keywords": ["privacy", "cookies", "proxy", "mitmproxy", "gdpr"],
+  "author": "LowKeyPrivate",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^29.0.0"
+  }
+}

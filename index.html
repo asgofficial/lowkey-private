@@ -1,0 +1,1608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LowKeyPrivate — Universal Consent Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Poiret+One&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #070809;
+  --bg2:       #0c0e10;
+  --panel:     rgba(10,13,16,0.85);
+  --panel2:    rgba(14,17,21,0.92);
+  --border:    rgba(255,255,255,0.06);
+  --border2:   rgba(255,255,255,0.11);
+  --glow:      #00ff88;
+  --glow-dim:  rgba(0,255,136,0.13);
+  --glow-glow: rgba(0,255,136,0.4);
+  --red:       #ff3b5c;
+  --red-dim:   rgba(255,59,92,0.14);
+  --amber:     #ffb03b;
+  --amber-dim: rgba(255,176,59,0.14);
+  --blue:      #38b6ff;
+  --blue-dim:  rgba(56,182,255,0.12);
+  --purple:    #b06fff;
+  --purple-dim:rgba(176,111,255,0.13);
+  --text:      #c8d0dc;
+  --text-dim:  #576070;
+  --text-fp:   #242830;
+  --mono:      'Montserrat', monospace;
+  --display:   'Poiret One', sans-serif;
+  --r:         10px;
+  --rsm:       6px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);cursor:crosshair;}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:var(--text-fp);border-radius:2px;}
+::-webkit-scrollbar-thumb:hover{background:var(--glow);}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);pointer-events:none;z-index:1;}
+#bgCanvas{position:fixed;inset:0;z-index:0;pointer-events:none;}
+.shell{position:relative;z-index:2;display:grid;grid-template-columns:215px 1fr;grid-template-rows:56px 1fr;height:100vh;width:100vw;}
+.topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:rgba(7,8,9,0.9);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);position:relative;z-index:10;}
+.topbar::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent 0%,var(--glow) 45%,var(--glow) 55%,transparent 100%);opacity:0.25;}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:16px;font-weight:800;letter-spacing:-0.5px;color:#fff;}
+.logo-mark{width:28px;height:28px;}
+.logo em{color:var(--glow);font-style:normal;}
+.topbar-mid{position:absolute;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;font-size:9px;color:var(--text-dim);letter-spacing:2.5px;text-transform:uppercase;}
+.topbar-mid::before,.topbar-mid::after{content:'';width:36px;height:1px;background:linear-gradient(90deg,transparent,var(--text-fp));}
+.topbar-mid::after{transform:scaleX(-1);}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.clk{font-size:11px;color:var(--text-dim);letter-spacing:1.5px;font-weight:500;}
+.proxy-pill{display:flex;align-items:center;gap:7px;padding:5px 14px;border-radius:100px;font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;border:1px solid var(--border2);background:var(--panel2);color:var(--text-dim);transition:all 0.3s;cursor:pointer;user-select:none;}
+.proxy-pill.on{border-color:var(--glow);color:var(--glow);background:var(--glow-dim);box-shadow:0 0 20px rgba(0,255,136,0.15);}
+.pip{width:7px;height:7px;border-radius:50%;background:var(--text-fp);transition:all 0.3s;}
+.proxy-pill.on .pip{background:var(--glow);box-shadow:0 0 8px var(--glow),0 0 16px var(--glow);animation:blink 2s ease-in-out infinite;}
+/* DoS alert pill in topbar */
+.dos-alert-pill{display:none;align-items:center;gap:7px;padding:5px 14px;border-radius:100px;font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;border:1px solid rgba(176,111,255,0.5);background:var(--purple-dim);color:var(--purple);animation:pulseAlert 1.2s ease-in-out infinite;}
+.dos-alert-pill.visible{display:flex;}
+@keyframes pulseAlert{0%,100%{box-shadow:0 0 8px rgba(176,111,255,0.3);}50%{box-shadow:0 0 22px rgba(176,111,255,0.7);}}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.4;}}
+.sidebar{background:rgba(8,10,13,0.9);backdrop-filter:blur(24px);border-right:1px solid var(--border);padding:20px 10px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;font-family:'Montserrat',sans-serif;}
+.nav-lbl{font-size:9px;letter-spacing:2.5px;color:var(--text-fp);text-transform:uppercase;padding:10px 10px 4px;font-weight:600;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:var(--rsm);cursor:pointer;transition:all 0.15s;font-size:12px;font-weight:500;color:var(--text-dim);border:1px solid transparent;position:relative;}
+.nav-item:hover{background:rgba(255,255,255,0.03);color:var(--text);}
+.nav-item.active{background:var(--glow-dim);color:var(--glow);border-color:rgba(0,255,136,0.14);}
+.nav-item.active::before{content:'';position:absolute;left:-10px;top:50%;transform:translateY(-50%);width:3px;height:55%;background:var(--glow);border-radius:0 3px 3px 0;box-shadow:0 0 8px var(--glow);}
+.nav-item.dos-nav.active{background:var(--purple-dim);color:var(--purple);border-color:rgba(176,111,255,0.2);}
+.nav-item.dos-nav.active::before{background:var(--purple);box-shadow:0 0 8px var(--purple);}
+.nav-item.dos-nav:hover{color:var(--purple);}
+.nav-ico{font-size:13px;width:17px;text-align:center;flex-shrink:0;}
+.nav-badge{margin-left:auto;font-size:8px;font-weight:800;padding:1px 6px;border-radius:100px;background:var(--purple-dim);color:var(--purple);border:1px solid rgba(176,111,255,0.3);display:none;letter-spacing:0.5px;}
+.nav-badge.show{display:block;}
+.sb-foot{margin-top:auto;padding:12px 10px;border-top:1px solid var(--border);}
+.sb-ver{font-size:9px;color:var(--text-fp);letter-spacing:1px;line-height:1.8;}
+.main{overflow-y:auto;overflow-x:hidden;padding:18px 20px;display:flex;flex-direction:column;gap:14px;}
+.page{display:none;flex-direction:column;gap:14px;animation:fadeIn 0.2s ease;}
+.page.active{display:flex;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+.ph{display:flex;align-items:flex-start;justify-content:space-between;}
+.ph-tag{font-size:9px;letter-spacing:2.5px;color:var(--glow);text-transform:uppercase;margin-bottom:3px;font-weight:600;}
+.ph-title{font-family:var(--display);font-size:24px;font-weight:800;color:#fff;letter-spacing:-1px;line-height:1;}
+.ph-sub{font-size:11px;color:var(--text-dim);margin-top:3px;}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.sc{background:var(--panel);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;position:relative;overflow:hidden;transition:border-color 0.3s;}
+.sc:hover{border-color:var(--border2);}
+.sc::before{content:'';position:absolute;top:0;left:15%;right:15%;height:1px;}
+.sc.g::before{background:linear-gradient(90deg,transparent,var(--glow),transparent);}
+.sc.r::before{background:linear-gradient(90deg,transparent,var(--red),transparent);}
+.sc.b::before{background:linear-gradient(90deg,transparent,var(--blue),transparent);}
+.sc.p::before{background:linear-gradient(90deg,transparent,var(--purple),transparent);}
+.sc-tag{font-size:11px;letter-spacing:1px;color:#cbd5e1;font-weight:700;text-transform:uppercase;margin-bottom:8px;text-shadow:0 0 6px rgba(255,255,255,0.15);}
+.sc-val{font-family:var(--display);font-size:32px;font-weight:800;letter-spacing:-2px;line-height:1;}
+.sc.g .sc-val{color:var(--glow);text-shadow:0 0 24px rgba(0,255,136,0.5);}
+.sc.r .sc-val{color:var(--red);text-shadow:0 0 24px rgba(255,59,92,0.5);}
+.sc.b .sc-val{color:var(--blue);text-shadow:0 0 24px rgba(56,182,255,0.4);}
+.sc.p .sc-val{color:var(--purple);text-shadow:0 0 24px rgba(176,111,255,0.5);}
+.sc-sub{font-size:10px;color:var(--text-dim);margin-top:3px;}
+.sparkline{position:absolute;bottom:0;right:0;width:80px;height:28px;opacity:0.35;}
+.dash-grid{display:grid;grid-template-columns:1fr 330px;gap:14px;flex:1;min-height:0;}
+.panel{background:rgba(10,13,16,0.55);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;}
+.ph2{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.ptitle{font-size:10px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;font-weight:600;}
+.live-chip{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--glow);letter-spacing:1px;text-transform:uppercase;}
+.live-pip{width:5px;height:5px;border-radius:50%;background:var(--glow);box-shadow:0 0 6px var(--glow);animation:blink 1.5s ease-in-out infinite;}
+.term-wrap{height:400px;display:flex;flex-direction:column;overflow:hidden;}
+.term-ctrl{display:flex;align-items:center;gap:6px;padding:9px 12px;background:rgba(0,0,0,0.35);border-bottom:1px solid var(--border);flex-shrink:0;}
+.td{width:10px;height:10px;border-radius:50%;cursor:pointer;}
+.td.cl{background:#ff5f57;}
+.td.mn{background:#ffbd2e;}
+.td.mx{background:#28ca42;box-shadow:0 0 6px #28ca42;}
+.term-lbl{margin-left:auto;font-size:9px;color:var(--text-fp);letter-spacing:1px;}
+.term-body{flex:1;overflow-y:auto;padding:10px 12px;font-size:11px;line-height:1.75;background:rgba(20,25,30,0.25);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid rgba(255,255,255,0.08);box-shadow:inset 0 0 20px rgba(0,0,0,0.3);min-height:0;}
+.tl{display:block;white-space:pre-wrap;word-break:break-all;animation:tIn 0.08s ease;}
+@keyframes tIn{from{opacity:0;transform:translateX(-3px);}to{opacity:1;transform:translateX(0);}}
+.tl.info{color:rgba(220,228,240,0.75);}
+.tl.block{color:var(--glow);}
+.tl.accept{color:var(--red);}
+.tl.sys{color:var(--amber);}
+.tl.dos{color:var(--purple);}
+.tl-ts{color:rgba(100,110,130,0.7);margin-right:2px;}
+.rcol{display:flex;flex-direction:column;gap:14px;min-height:0;}
+.hud{background:var(--panel);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.hud-head{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.hud-ttl{font-size:9px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;font-weight:600;}
+.hud-grid{display:grid;grid-template-columns:1fr 1fr 1fr;}
+.hud-cell{padding:12px 10px;text-align:center;position:relative;}
+.hud-cell:not(:last-child)::after{content:'';position:absolute;right:0;top:20%;bottom:20%;width:1px;background:var(--border);}
+.hud-metric{font-size:11px;letter-spacing:1px;color:#cbd5e1;font-weight:600;text-transform:uppercase;}
+.hud-val{font-family:var(--display);font-size:22px;font-weight:800;letter-spacing:-1px;line-height:1;transition:all 0.4s;}
+.hud-val.ping{color:var(--glow);}
+.hud-val.down{color:var(--blue);}
+.hud-val.up{color:var(--amber);}
+.hud-unit{font-size:9px;color:var(--text-fp);margin-top:2px;letter-spacing:1px;}
+.hud-bar-w{height:2px;background:rgba(255,255,255,0.05);border-radius:1px;margin-top:7px;overflow:hidden;}
+.hud-bar{height:100%;border-radius:1px;transition:width 0.9s ease;}
+.hud-bar.ping{background:var(--glow);box-shadow:0 0 4px var(--glow);}
+.hud-bar.down{background:var(--blue);box-shadow:0 0 4px var(--blue);}
+.hud-bar.up{background:var(--amber);box-shadow:0 0 4px var(--amber);}
+.mode-panel{background:var(--panel);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--r);padding:12px;}
+.mode-head{font-size:9px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;font-weight:600;margin-bottom:8px;}
+.mode-btn{display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:var(--rsm);border:1px solid var(--border);background:transparent;cursor:pointer;transition:all 0.2s;text-align:left;width:100%;}
+.mode-btn:hover{border-color:var(--border2);background:rgba(255,255,255,0.02);}
+.mode-btn+.mode-btn{margin-top:6px;}
+.mode-btn.active.reject{border-color:rgba(255,59,92,0.4);background:var(--red-dim);}
+.mode-btn.active.essential{border-color:rgba(0,255,136,0.3);background:var(--glow-dim);}
+.mode-btn.active.custom{border-color:rgba(56,182,255,0.3);background:var(--blue-dim);}
+.mode-ico{font-size:15px;flex-shrink:0;}
+.mode-nm{font-size:11px;font-weight:700;color:var(--text);margin-bottom:1px;}
+.mode-btn.active.reject .mode-nm{color:var(--red);}
+.mode-btn.active.essential .mode-nm{color:var(--glow);}
+.mode-btn.active.custom .mode-nm{color:var(--blue);}
+.mode-ds{font-size:10px;color:var(--text-fp);line-height:1.4;}
+.act-body{flex:1;overflow-y:auto;min-height:0;}
+.act-item{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);transition:background 0.15s;}
+.act-item:hover{background:rgba(255,255,255,0.02);}
+.act-item:last-child{border-bottom:none;}
+.act-site{font-size:12px;font-weight:600;color:var(--text);}
+.act-cat{font-size:10px;color:var(--text-fp);margin-top:1px;}
+.act-cnt{font-size:11px;color:var(--text-dim);}
+.badge{font-size:9px;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:100px;text-transform:uppercase;}
+.badge.blocked{background:rgba(0,255,136,0.1);color:var(--glow);border:1px solid rgba(0,255,136,0.25);}
+.badge.allowed{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,59,92,0.25);}
+.badge.essential_only{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(56,182,255,0.2);}
+.badge.dos-badge{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(176,111,255,0.3);}
+.act-time{font-size:10px;color:var(--text-fp);}
+.site-bar{display:flex;gap:7px;padding:12px 14px;background:rgba(0,0,0,0.2);border-bottom:1px solid var(--border);}
+.site-inp{flex:1;background:rgba(0,0,0,0.45);border:1px solid var(--border);border-radius:var(--rsm);padding:8px 11px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;transition:border-color 0.2s;}
+.site-inp::placeholder{color:var(--text-fp);}
+.site-inp:focus{border-color:var(--glow);box-shadow:0 0 12px var(--glow-dim);}
+.btn{padding:8px 13px;border-radius:var(--rsm);border:none;cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:0.5px;transition:all 0.2s;}
+.btn-t{background:var(--glow);color:#000;}
+.btn-t:hover{box-shadow:0 0 20px var(--glow-glow);transform:translateY(-1px);}
+.btn-b{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,59,92,0.3);}
+.btn-b:hover{background:var(--red);color:#fff;box-shadow:0 0 16px rgba(255,59,92,0.4);}
+.sites-cols{display:grid;grid-template-columns:1fr 1fr;flex:1;overflow:hidden;}
+.sites-col{padding:12px;overflow-y:auto;}
+.sites-col:first-child{border-right:1px solid var(--border);}
+.col-head{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:9px;}
+.col-head.t{color:var(--glow);}
+.col-head.b{color:var(--red);}
+.stag{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:var(--rsm);margin-bottom:5px;font-size:11px;animation:sIn 0.2s ease;}
+@keyframes sIn{from{opacity:0;transform:translateX(-5px);}to{opacity:1;transform:translateX(0);}}
+.rm{background:none;border:none;color:var(--text-fp);cursor:pointer;font-size:12px;padding:2px 5px;border-radius:3px;transition:all 0.15s;}
+.rm:hover{color:var(--red);background:var(--red-dim);}
+.set-list{display:flex;flex-direction:column;gap:9px;}
+.set-card{background:var(--panel);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;transition:border-color 0.2s;}
+.set-card:hover{border-color:var(--border2);}
+.set-nm{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;}
+.set-ds{font-size:11px;color:var(--text-dim);}
+.tog{position:relative;width:42px;height:23px;cursor:pointer;flex-shrink:0;}
+.tog input{opacity:0;width:0;height:0;}
+.tog-track{position:absolute;inset:0;background:rgba(0,0,0,0.4);border:1px solid var(--border2);border-radius:100px;transition:all 0.3s;}
+.tog-track::after{content:'';position:absolute;top:3px;left:3px;width:15px;height:15px;background:var(--text-fp);border-radius:50%;transition:all 0.3s;}
+.tog input:checked+.tog-track{background:var(--glow-dim);border-color:var(--glow);}
+.tog input:checked+.tog-track::after{background:var(--glow);transform:translateX(19px);box-shadow:0 0 8px var(--glow);}
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.about-item{display:flex;gap:12px;padding:16px;background:var(--panel);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--r);}
+.about-ico{width:38px;height:38px;border-radius:8px;display:grid;place-items:center;font-size:17px;flex-shrink:0;}
+.about-ico.g{background:var(--glow-dim);border:1px solid rgba(0,255,136,0.2);}
+.about-ico.r{background:var(--red-dim);border:1px solid rgba(255,59,92,0.2);}
+.about-ico.b{background:var(--blue-dim);border:1px solid rgba(56,182,255,0.2);}
+.about-ico.a{background:var(--amber-dim);border:1px solid rgba(255,176,59,0.2);}
+.about-nm{font-size:12px;font-weight:700;margin-bottom:4px;}
+.about-ds{font-size:11px;color:var(--text-dim);line-height:1.6;}
+.stack{grid-column:1/-1;padding:14px 16px;background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:var(--rsm);font-size:10px;color:var(--text-fp);letter-spacing:1px;line-height:2;}
+.toast{position:fixed;bottom:22px;right:22px;background:rgba(7,8,9,0.96);border:1px solid var(--glow);color:var(--glow);padding:9px 16px;border-radius:var(--rsm);font-size:11px;letter-spacing:0.5px;opacity:0;transform:translateY(8px);transition:all 0.25s;z-index:999;pointer-events:none;box-shadow:0 0 24px var(--glow-dim);}
+.toast.show{opacity:1;transform:translateY(0);}
+/* ── SANDBOX PAGE ── */
+.sb-stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.nuke-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,59,92,0.06);border:1px solid rgba(255,59,92,0.18);border-radius:var(--r);margin-bottom:14px;}
+.nuke-info{font-size:11px;color:var(--text-dim);}
+.nuke-info strong{color:var(--red);font-weight:700;}
+.btn-nuke{padding:7px 16px;border-radius:var(--rsm);border:1px solid rgba(255,59,92,0.5);background:var(--red-dim);color:var(--red);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.2s;}
+.btn-nuke:hover{background:var(--red);color:#fff;box-shadow:0 0 18px rgba(255,59,92,0.4);}
+.sb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
+.sb-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:border-color 0.2s;position:relative;}
+.sb-card:hover{border-color:var(--border2);}
+.sb-card-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.25);}
+.sb-host{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;}
+.sb-status{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--glow);letter-spacing:1px;text-transform:uppercase;}
+.sb-pip{width:5px;height:5px;border-radius:50%;background:var(--glow);box-shadow:0 0 5px var(--glow);animation:blink 2s ease-in-out infinite;}
+.sb-body{padding:10px 12px;display:flex;flex-direction:column;gap:6px;}
+.sb-row{display:flex;align-items:center;justify-content:space-between;font-size:11px;}
+.sb-lbl{color:var(--text-fp);letter-spacing:0.5px;}
+.sb-val{font-weight:700;color:var(--text);}
+.sb-val.cookies{color:var(--amber);}
+.sb-val.cache{color:var(--blue);}
+.sb-cookies{display:flex;flex-wrap:wrap;gap:4px;padding:0 12px 10px;}
+.ck-tag{font-size:9px;padding:2px 7px;border-radius:100px;background:rgba(255,176,59,0.1);border:1px solid rgba(255,176,59,0.25);color:var(--amber);letter-spacing:0.5px;}
+.sb-foot-bar{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--border);background:rgba(0,0,0,0.15);}
+.btn-destroy{flex:1;padding:6px;border-radius:var(--rsm);border:1px solid rgba(255,59,92,0.3);background:transparent;color:var(--red);font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:0.5px;cursor:pointer;transition:all 0.2s;}
+.btn-destroy:hover{background:var(--red);color:#fff;box-shadow:0 0 12px rgba(255,59,92,0.35);}
+.sb-empty{grid-column:1/-1;padding:48px;text-align:center;color:var(--text-fp);font-size:11px;letter-spacing:1.5px;line-height:2;}
+.sb-empty-ico{font-size:28px;display:block;margin-bottom:10px;opacity:0.4;}
+.sb-ts{font-size:9px;color:var(--text-fp);letter-spacing:0.5px;}
+
+/* ── ANALYTICS PAGE ── */
+.an-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.an-body{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.an-card{background:var(--panel);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.an-card-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);}
+.an-card-title{font-size:9px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;font-weight:600;}
+.an-card-body{padding:14px;}
+.score-wrap{display:flex;align-items:center;gap:20px;padding:14px 18px;}
+.score-ring-wrap{position:relative;width:90px;height:90px;flex-shrink:0;}
+.score-ring-wrap svg{transform:rotate(-90deg);}
+.score-ring-bg{fill:none;stroke:rgba(255,255,255,0.05);stroke-width:7;}
+.score-ring-fg{fill:none;stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset 1s ease,stroke 0.5s;}
+.score-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.score-val{font-family:var(--display);font-size:22px;font-weight:800;line-height:1;}
+.score-lbl{font-size:8px;letter-spacing:1.5px;color:var(--text-fp);text-transform:uppercase;margin-top:1px;}
+.score-info{flex:1;}
+.score-grade{font-family:var(--display);font-size:28px;font-weight:800;line-height:1;margin-bottom:4px;}
+.score-desc{font-size:11px;color:var(--text-dim);line-height:1.6;}
+.score-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+.score-tag{font-size:9px;padding:2px 8px;border-radius:100px;letter-spacing:0.5px;}
+.tracker-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);}
+.tracker-row:last-child{border-bottom:none;}
+.tracker-name{font-size:11px;font-weight:600;color:var(--text);width:110px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tracker-bar-w{flex:1;height:4px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;}
+.tracker-bar-f{height:100%;border-radius:2px;transition:width 0.8s ease;}
+.tracker-count{font-size:10px;color:var(--text-dim);width:28px;text-align:right;flex-shrink:0;}
+.an-chart{width:100%;height:130px;display:block;}
+.donut-wrap{display:flex;align-items:center;gap:18px;padding:4px 0;}
+.donut-canvas{flex-shrink:0;}
+.donut-legend{display:flex;flex-direction:column;gap:7px;flex:1;}
+.dl-row{display:flex;align-items:center;gap:7px;font-size:11px;}
+.dl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dl-lbl{color:var(--text-dim);flex:1;}
+.dl-val{font-weight:700;color:var(--text);}
+.site-rank-row{display:grid;grid-template-columns:18px 1fr auto auto;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--border);}
+.site-rank-row:last-child{border-bottom:none;}
+.sr-rank{font-size:10px;color:var(--text-fp);font-weight:700;}
+.sr-host{font-size:12px;font-weight:600;color:var(--text);}
+.sr-sub{font-size:10px;color:var(--text-fp);margin-top:1px;}
+.sr-bar-w{height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin-top:4px;}
+.sr-bar-f{height:100%;border-radius:2px;}
+.sr-num{font-size:11px;font-weight:700;text-align:right;}
+.heatmap-grid{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;padding:4px 0;}
+.hm-cell{height:22px;border-radius:2px;transition:background 0.4s;}
+.hm-labels{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;margin-top:3px;}
+.hm-lbl{font-size:7px;color:var(--text-fp);text-align:center;}
+.insight-strip{display:flex;flex-direction:column;gap:7px;}
+.insight-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:var(--rsm);}
+.insight-ico{font-size:16px;flex-shrink:0;margin-top:1px;}
+.insight-text{font-size:11px;color:var(--text-dim);line-height:1.6;}
+.insight-text strong{color:var(--text);font-weight:700;}
+.reach-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);}
+.reach-cell{background:var(--panel2);padding:12px 10px;text-align:center;}
+.reach-val{font-family:var(--display);font-size:20px;font-weight:800;line-height:1;}
+.reach-lbl{font-size:9px;color:var(--text-fp);letter-spacing:1px;text-transform:uppercase;margin-top:3px;}
+.reach-delta{font-size:9px;margin-top:2px;letter-spacing:0.5px;}
+.reach-delta.up{color:var(--red);}
+.reach-delta.dn{color:var(--glow);}
+.period-tabs{display:flex;gap:1px;background:rgba(0,0,0,0.4);border-radius:var(--rsm);padding:2px;border:1px solid var(--border);}
+.ptab{padding:4px 10px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;color:var(--text-fp);transition:all 0.15s;border:none;background:transparent;}
+.ptab.active{background:var(--glow-dim);color:var(--glow);border:1px solid rgba(0,255,136,0.2);}
+
+/* ═══════════════════════════════════════════
+   DOS PROTECTION PAGE STYLES
+   ═══════════════════════════════════════════ */
+.dos-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+
+/* Shield status banner */
+.dos-shield-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-radius:var(--r);border:1px solid rgba(176,111,255,0.25);background:linear-gradient(135deg,rgba(176,111,255,0.07),rgba(176,111,255,0.03));position:relative;overflow:hidden;}
+.dos-shield-bar::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent);opacity:0.6;}
+.dos-shield-info{display:flex;align-items:center;gap:14px;}
+.dos-shield-ico{font-size:28px;}
+.dos-shield-title{font-family:var(--display);font-size:18px;font-weight:800;color:#fff;letter-spacing:-0.5px;}
+.dos-shield-sub{font-size:11px;color:var(--text-dim);margin-top:2px;}
+.dos-shield-controls{display:flex;align-items:center;gap:10px;}
+.dos-shield-status{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--purple);}
+.dos-shield-status.inactive{color:var(--text-fp);}
+
+/* Threat level meter */
+.dos-threat-bar{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--panel);border:1px solid var(--border);border-radius:var(--r);}
+.dos-threat-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;color:var(--text-dim);white-space:nowrap;width:90px;}
+.dos-threat-track{flex:1;height:6px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;position:relative;}
+.dos-threat-fill{height:100%;border-radius:3px;transition:width 0.6s ease,background 0.6s ease;}
+.dos-threat-val{font-size:11px;font-weight:700;width:42px;text-align:right;}
+.dos-threat-level{font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;border-radius:100px;font-weight:700;white-space:nowrap;}
+
+/* Rate limiter config */
+.dos-config-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.dos-config-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:14px;}
+.dos-config-title{font-size:9px;letter-spacing:2px;text-transform:uppercase;font-weight:600;color:var(--text-dim);margin-bottom:12px;}
+.dos-slider-row{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+.dos-slider-row:last-child{margin-bottom:0;}
+.dos-slider-label{display:flex;justify-content:space-between;font-size:11px;}
+.dos-slider-name{color:var(--text-dim);}
+.dos-slider-val{color:var(--purple);font-weight:700;}
+.dos-slider{-webkit-appearance:none;appearance:none;width:100%;height:3px;background:rgba(255,255,255,0.06);border-radius:2px;outline:none;cursor:pointer;}
+.dos-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;background:var(--purple);border-radius:50%;cursor:pointer;box-shadow:0 0 8px rgba(176,111,255,0.6);transition:transform 0.1s;}
+.dos-slider::-webkit-slider-thumb:hover{transform:scale(1.2);}
+.dos-slider::-webkit-slider-runnable-track{height:3px;border-radius:2px;background:linear-gradient(90deg,var(--purple) var(--pct,50%),rgba(255,255,255,0.06) var(--pct,50%));}
+
+/* Attacker host table */
+.dos-host-table{width:100%;border-collapse:collapse;}
+.dos-host-table th{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-fp);font-weight:600;padding:8px 14px;border-bottom:1px solid var(--border);text-align:left;}
+.dos-host-table td{padding:9px 14px;font-size:11px;border-bottom:1px solid var(--border);}
+.dos-host-table tr:last-child td{border-bottom:none;}
+.dos-host-table tr:hover td{background:rgba(255,255,255,0.015);}
+.dos-host-name{font-weight:600;color:var(--text);}
+.dos-host-sub{font-size:9px;color:var(--text-fp);margin-top:1px;}
+.dos-rps{font-family:var(--display);font-size:16px;font-weight:800;}
+.dos-rps.safe{color:var(--glow);}
+.dos-rps.warn{color:var(--amber);}
+.dos-rps.danger{color:var(--red);}
+.dos-threat-pill{font-size:8px;font-weight:700;letter-spacing:1px;padding:2px 8px;border-radius:100px;text-transform:uppercase;}
+.dos-threat-pill.low{background:rgba(0,255,136,0.1);color:var(--glow);border:1px solid rgba(0,255,136,0.2);}
+.dos-threat-pill.medium{background:rgba(255,176,59,0.1);color:var(--amber);border:1px solid rgba(255,176,59,0.25);}
+.dos-threat-pill.high{background:rgba(255,59,92,0.12);color:var(--red);border:1px solid rgba(255,59,92,0.3);}
+.dos-threat-pill.critical{background:rgba(176,111,255,0.15);color:var(--purple);border:1px solid rgba(176,111,255,0.35);animation:pulseAlert 1s ease-in-out infinite;}
+.dos-auto-block-btn{font-size:9px;padding:3px 10px;border-radius:100px;border:1px solid rgba(255,59,92,0.3);background:transparent;color:var(--red);font-family:var(--mono);font-weight:700;cursor:pointer;letter-spacing:0.5px;transition:all 0.2s;}
+.dos-auto-block-btn:hover{background:var(--red);color:#fff;}
+.dos-auto-block-btn.blocked-already{border-color:rgba(255,255,255,0.06);color:var(--text-fp);pointer-events:none;}
+
+/* Attack event log */
+.dos-log-body{height:220px;overflow-y:auto;padding:8px 12px;font-size:11px;line-height:1.85;background:rgba(10,8,20,0.5);}
+.dos-log-line{display:block;white-space:pre-wrap;word-break:break-all;animation:tIn 0.1s ease;}
+.dos-log-line.flood{color:var(--purple);}
+.dos-log-line.block{color:var(--red);}
+.dos-log-line.warn{color:var(--amber);}
+.dos-log-line.ok{color:rgba(200,208,220,0.6);}
+.dos-log-ts{color:rgba(100,110,130,0.6);margin-right:4px;}
+
+/* RPS sparkline chart */
+.dos-rps-chart{width:100%;height:80px;display:block;}
+
+/* Big layout for dos page */
+.dos-main-grid{display:grid;grid-template-columns:1fr 320px;gap:14px;}
+.dos-left{display:flex;flex-direction:column;gap:14px;}
+.dos-right{display:flex;flex-direction:column;gap:14px;}
+
+/* Flash effect on attack */
+@keyframes attackFlash{
+  0%{box-shadow:0 0 0 0 rgba(176,111,255,0);}
+  30%{box-shadow:0 0 0 8px rgba(176,111,255,0.35);}
+  100%{box-shadow:0 0 0 0 rgba(176,111,255,0);}
+}
+.dos-flash{animation:attackFlash 0.7s ease;}
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+
+<div class="shell">
+
+  <header class="topbar">
+    <div class="logo">
+      <svg class="logo-mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="14,2 26,8.5 26,19.5 14,26 2,19.5 2,8.5" stroke="#00ff88" stroke-width="1.1" fill="none" opacity="0.55"/>
+        <polygon points="14,7 21,11 21,17 14,21 7,17 7,11" fill="#00ff88" opacity="0.12"/>
+        <circle cx="14" cy="14" r="4.5" fill="#00ff88" opacity="0.85"/>
+        <circle cx="14" cy="14" r="2.2" fill="#fff"/>
+      </svg>
+      LowKey<em>Private</em>
+    </div>
+    <div class="topbar-mid">Universal Consent Manager</div>
+    <div class="topbar-right">
+      <div class="dos-alert-pill" id="dosAlertPill">DOS ALERT</div>
+      <div class="clk" id="sysClock">00:00:00</div>
+      <div class="proxy-pill" id="proxyPill" onclick="toggleProxy()">
+        <span class="pip" id="pip"></span>
+        <span id="pillLabel">PROXY OFF</span>
+      </div>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+    <div class="nav-lbl">Monitor</div>
+    <div class="nav-item active" onclick="showPage('dashboard',this)"><span class="nav-ico">⬡</span>Dashboard</div>
+    <div class="nav-item" onclick="showPage('analytics',this)"><span class="nav-ico">◑</span>Analytics</div>
+    <div class="nav-item" onclick="showPage('activity',this)"><span class="nav-ico">◈</span>Activity</div>
+    <div class="nav-lbl">Control</div>
+    <div class="nav-item dos-nav" onclick="showPage('dos',this)">
+      <span class="nav-ico">o</span>DoS Shield
+      <span class="nav-badge" id="dosNavBadge">!</span>
+    </div>
+    <div class="nav-item" onclick="showPage('sandbox',this)"><span class="nav-ico">⬢</span>Sandboxes</div>
+    <div class="nav-item" onclick="showPage('sites',this)"><span class="nav-ico">◉</span>Site Rules</div>
+    <div class="nav-item" onclick="showPage('settings',this)"><span class="nav-ico">◎</span>Settings</div>
+    <div class="nav-lbl">Info</div>
+    <div class="nav-item" onclick="showPage('about',this)"><span class="nav-ico">◌</span>About</div>
+    <div class="sb-foot"></div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ═══ DASHBOARD ═══ -->
+    <section class="page active" id="page-dashboard">
+      <div class="ph">
+        <div><div class="ph-tag"></div><div class="ph-title">Dashboard</div><div class="ph-sub">Real-time privacy shield telemetry</div></div>
+      </div>
+      <div class="stats-row">
+        <div class="sc g"><div class="sc-tag">Cookies Blocked</div><div class="sc-val" id="statBlocked">—</div><div class="sc-sub">This session</div><canvas class="sparkline" id="spkB"></canvas></div>
+        <div class="sc r"><div class="sc-tag">Trackers Neutralized</div><div class="sc-val" id="statTrackers">—</div><div class="sc-sub">Active threats stopped</div><canvas class="sparkline" id="spkT"></canvas></div>
+        <div class="sc b"><div class="sc-tag">Requests Inspected</div><div class="sc-val" id="statRequests">—</div><div class="sc-sub">All HTTP/S traffic</div><canvas class="sparkline" id="spkR"></canvas></div>
+      </div>
+      <div class="dash-grid">
+        <div class="panel" style="min-height:260px;">
+          <div class="ph2"><div class="ptitle">LowKey Monitor — Terminal</div><div class="live-chip"><div class="live-pip"></div>Live</div></div>
+          <div class="term-wrap">
+            <div class="term-ctrl">
+              <div class="td cl"></div><div class="td mn"></div><div class="td mx"></div>
+              <div class="term-lbl">lowkeyprivate@proxy:~$</div>
+            </div>
+            <div class="term-body" id="termBody"></div>
+          </div>
+        </div>
+        <div class="rcol">
+          <div class="hud">
+            <div class="hud-head"><div class="hud-ttl">Network HUD</div><div class="live-chip"><div class="live-pip"></div>Live</div></div>
+            <div class="hud-grid">
+              <div class="hud-cell">
+                <div class="hud-metric">Ping</div>
+                <div class="hud-val ping" id="hudPing">—</div>
+                <div class="hud-unit">ms</div>
+                <div class="hud-bar-w"><div class="hud-bar ping" id="bPing" style="width:0%"></div></div>
+              </div>
+              <div class="hud-cell">
+                <div class="hud-metric">Download</div>
+                <div class="hud-val down" id="hudDown">—</div>
+                <div class="hud-unit">Mbps</div>
+                <div class="hud-bar-w"><div class="hud-bar down" id="bDown" style="width:0%"></div></div>
+              </div>
+              <div class="hud-cell">
+                <div class="hud-metric">Upload</div>
+                <div class="hud-val up" id="hudUp">—</div>
+                <div class="hud-unit">Mbps</div>
+                <div class="hud-bar-w"><div class="hud-bar up" id="bUp" style="width:0%"></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="mode-panel">
+            <div class="mode-head">Protection Mode</div>
+            <button class="mode-btn reject" id="mode-reject_all" onclick="setMode('reject_all')">
+              <span class="mode-ico"></span>
+              <div><div class="mode-nm">Reject All Tracking</div><div class="mode-ds">Block every non-essential cookie.</div></div>
+            </button>
+            <button class="mode-btn essential" id="mode-essential_only" onclick="setMode('essential_only')">
+              <span class="mode-ico"></span>
+              <div><div class="mode-nm">Essential Only</div><div class="mode-ds">Allow session & login cookies only.</div></div>
+            </button>
+            <button class="mode-btn custom" id="mode-custom" onclick="setMode('custom')">
+              <span class="mode-ico"></span>
+              <div><div class="mode-nm">Custom Rules</div><div class="mode-ds">Per-site trust & block control.</div></div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ DOS SHIELD PAGE ═══ -->
+    <section class="page" id="page-dos">
+      <div class="ph">
+        <div>
+          <div class="ph-tag" style="color:var(--purple);"></div>
+          <div class="ph-title">DoS Shield</div>
+          <div class="ph-sub">Request flood detection, rate limiting &amp; auto-blocking</div>
+        </div>
+      </div>
+
+      <!-- Shield status banner -->
+      <div class="dos-shield-bar" id="dosShieldBar">
+        <div class="dos-shield-info">
+          <div class="dos-shield-ico" id="dosShieldIco"></div>
+          <div>
+            <div class="dos-shield-title" id="dosShieldTitle">DoS Shield Active</div>
+            <div class="dos-shield-sub" id="dosShieldSub">Monitoring request rates — no floods detected</div>
+          </div>
+        </div>
+        <div class="dos-shield-controls">
+          <div class="dos-shield-status" id="dosShieldStatus">PROTECTED</div>
+          <label class="tog" title="Toggle DoS Shield">
+            <input type="checkbox" id="dosShieldToggle" checked onchange="toggleDosShield()"/>
+            <div class="tog-track"></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- KPI row -->
+      <div class="dos-kpi-row">
+        <div class="sc p"><div class="sc-tag">Floods Detected</div><div class="sc-val" id="dosKpiFloods">0</div><div class="sc-sub">This session</div></div>
+        <div class="sc r"><div class="sc-tag">Hosts Auto-Blocked</div><div class="sc-val" id="dosKpiBlocked">0</div><div class="sc-sub">Rate-limit triggered</div></div>
+        <div class="sc b"><div class="sc-tag">Peak RPS</div><div class="sc-val" id="dosKpiPeakRps">0</div><div class="sc-sub">Requests / sec max</div></div>
+        <div class="sc g"><div class="sc-tag">Current RPS</div><div class="sc-val" id="dosKpiCurrRps">0</div><div class="sc-sub">Live rate</div></div>
+      </div>
+
+      <!-- Global threat meter -->
+      <div class="dos-threat-bar" id="dosThreatBar">
+        <div class="dos-threat-label">Threat Level</div>
+        <div class="dos-threat-track">
+          <div class="dos-threat-fill" id="dosThreatFill" style="width:0%;background:var(--glow);"></div>
+        </div>
+        <div class="dos-threat-val" id="dosThreatVal" style="color:var(--glow);">0%</div>
+        <div class="dos-threat-level" id="dosThreatLevel" style="background:rgba(0,255,136,0.1);color:var(--glow);border:1px solid rgba(0,255,136,0.2);">SAFE</div>
+      </div>
+
+      <!-- Main layout -->
+      <div class="dos-main-grid">
+
+        <!-- Left column -->
+        <div class="dos-left">
+
+          <!-- RPS Timeline chart -->
+          <div class="an-card">
+            <div class="an-card-head">
+              <span class="an-card-title">Request Rate — Live Timeline</span>
+              <div class="live-chip"><div class="live-pip" style="background:var(--purple);box-shadow:0 0 6px var(--purple);"></div><span style="color:var(--purple);">Live</span></div>
+            </div>
+            <div class="an-card-body" style="padding:10px 14px;">
+              <canvas class="dos-rps-chart" id="dosRpsChart" height="80"></canvas>
+              <div style="display:flex;gap:16px;margin-top:8px;font-size:9px;color:var(--text-fp);">
+                <span><span style="color:var(--purple);">■</span> Requests/sec</span>
+                <span><span style="color:var(--red);">■</span> Flood threshold</span>
+                <span id="dosChartNote" style="margin-left:auto;letter-spacing:1px;">Last 60 samples</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Per-host threat table -->
+          <div class="an-card">
+            <div class="an-card-head">
+              <span class="an-card-title">Per-Host Threat Monitor</span>
+              <span style="font-size:9px;color:var(--text-fp);">Auto-refreshes every 2s</span>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="dos-host-table">
+                <thead>
+                  <tr>
+                    <th>Host</th>
+                    <th>Req / sec</th>
+                    <th>Total Reqs</th>
+                    <th>Threat</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="dosHostTableBody">
+                  <tr><td colspan="5" style="text-align:center;color:var(--text-fp);padding:28px;letter-spacing:1px;font-size:10px;">No traffic detected yet — browse through the proxy</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right column -->
+        <div class="dos-right">
+
+          <!-- Rate limit config -->
+          <div class="dos-config-card">
+            <div class="dos-config-title">Rate Limit Configuration</div>
+
+            <div class="dos-slider-row">
+              <div class="dos-slider-label">
+                <span class="dos-slider-name">Flood Threshold (req/s)</span>
+                <span class="dos-slider-val" id="valFloodThresh">50</span>
+              </div>
+              <input type="range" class="dos-slider" id="sliderFloodThresh"
+                min="5" max="200" value="50"
+                oninput="updateSlider('FloodThresh',this.value,'req/s')">
+            </div>
+
+            <div class="dos-slider-row">
+              <div class="dos-slider-label">
+                <span class="dos-slider-name">Block Duration (sec)</span>
+                <span class="dos-slider-val" id="valBlockDuration">30</span>
+              </div>
+              <input type="range" class="dos-slider" id="sliderBlockDuration"
+                min="5" max="300" value="30"
+                oninput="updateSlider('BlockDuration',this.value,'s')">
+            </div>
+
+            <div class="dos-slider-row">
+              <div class="dos-slider-label">
+                <span class="dos-slider-name">Warning Threshold (req/s)</span>
+                <span class="dos-slider-val" id="valWarnThresh">20</span>
+              </div>
+              <input type="range" class="dos-slider" id="sliderWarnThresh"
+                min="2" max="100" value="20"
+                oninput="updateSlider('WarnThresh',this.value,'req/s')">
+            </div>
+
+            <div class="dos-slider-row">
+              <div class="dos-slider-label">
+                <span class="dos-slider-name">Rate Window (sec)</span>
+                <span class="dos-slider-val" id="valRateWindow">5</span>
+              </div>
+              <input type="range" class="dos-slider" id="sliderRateWindow"
+                min="1" max="30" value="5"
+                oninput="updateSlider('RateWindow',this.value,'s')">
+            </div>
+
+            <!-- Auto-block toggle -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+              <div>
+                <div style="font-size:11px;font-weight:600;color:var(--text);">Auto-Block Flooders</div>
+                <div style="font-size:10px;color:var(--text-fp);margin-top:2px;">Instantly add to blocked list</div>
+              </div>
+              <label class="tog">
+                <input type="checkbox" id="dosAutoBlock" checked/>
+                <div class="tog-track"></div>
+              </label>
+            </div>
+
+            <!-- Whitelist bypass toggle -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+              <div>
+                <div style="font-size:11px;font-weight:600;color:var(--text);">Exempt Trusted Sites</div>
+                <div style="font-size:10px;color:var(--text-fp);margin-top:2px;">Skip rate-limit for trusted list</div>
+              </div>
+              <label class="tog">
+                <input type="checkbox" id="dosExemptTrusted" checked/>
+                <div class="tog-track"></div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Attack event log -->
+          <div class="an-card" style="flex:1;">
+            <div class="an-card-head">
+              <span class="an-card-title">DoS Event Log</span>
+              <button onclick="clearDosLog()" style="font-size:9px;background:none;border:none;color:var(--text-fp);cursor:pointer;letter-spacing:1px;font-family:var(--mono);">CLEAR</button>
+            </div>
+            <div class="dos-log-body" id="dosLogBody">
+              <span class="dos-log-line ok"><span class="dos-log-ts">[--:--:--]</span>[BOOT] DoS Shield initialised — monitoring active</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ SANDBOX ═══ -->
+    <section class="page" id="page-sandbox">
+      <div class="ph">
+        <div>
+          <div class="ph-tag"></div>
+          <div class="ph-title">Sandboxes</div>
+          <div class="ph-sub">Per-site isolated cookie &amp; cache containers — destroyed on session end</div>
+        </div>
+      </div>
+      <div class="sb-stats-row">
+        <div class="sc g"><div class="sc-tag">Active Sandboxes</div><div class="sc-val" id="sbStatActive">—</div><div class="sc-sub">Currently isolated</div></div>
+        <div class="sc b"><div class="sc-tag">Cookies Held</div><div class="sc-val" id="sbStatCookies">—</div><div class="sc-sub">Across all sandboxes</div></div>
+        <div class="sc r"><div class="sc-tag">Destroyed</div><div class="sc-val" id="sbStatDestroyed">—</div><div class="sc-sub">This session</div></div>
+      </div>
+      <div class="nuke-bar">
+        <div class="nuke-info">⚠ <strong>Destroy All</strong> — wipes every active sandbox immediately.</div>
+        <button class="btn-nuke" onclick="destroyAllSandboxes()">NUKE ALL</button>
+      </div>
+      <div class="sb-grid" id="sandboxGrid">
+        <div class="sb-empty"><span class="sb-empty-ico">⬢</span>NO ACTIVE SANDBOXES<br><span style="font-size:10px;opacity:0.6">Browse any site through the proxy — a sandbox will appear here automatically</span></div>
+      </div>
+    </section>
+
+    <!-- ═══ ACTIVITY ═══ -->
+    <section class="page" id="page-activity">
+      <div class="ph"><div><div class="ph-tag"></div><div class="ph-title">Activity</div><div class="ph-sub">Intercepted request history</div></div></div>
+      <div class="panel" style="flex:1;min-height:400px;">
+        <div class="ph2"><div class="ptitle">All Requests</div><div class="live-chip"><div class="live-pip"></div>Live</div></div>
+        <div class="act-body" id="activityListFull"></div>
+      </div>
+    </section>
+
+    <!-- ═══ SITES ═══ -->
+    <section class="page" id="page-sites">
+      <div class="ph"><div><div class="ph-tag"></div><div class="ph-title">Site Rules</div><div class="ph-sub">Manage trusted and blocked domains</div></div></div>
+      <div class="panel" style="flex:1;min-height:400px;">
+        <div class="site-bar">
+          <input class="site-inp" id="siteInput" placeholder="e.g. example.com"/>
+          <button class="btn btn-t" onclick="addSite('trust')">✓ Trust</button>
+          <button class="btn btn-b" onclick="addSite('block')">✕ Block</button>
+        </div>
+        <div class="sites-cols" style="flex:1;overflow:hidden;">
+          <div class="sites-col"><div class="col-head t">✓ Trusted</div><div id="trustedList"></div></div>
+          <div class="sites-col"><div class="col-head b">✕ Blocked</div><div id="blockedList"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ SETTINGS ═══ -->
+    <section class="page" id="page-settings">
+      <div class="ph"><div><div class="ph-tag"></div><div class="ph-title">Settings</div><div class="ph-sub">Configure CookieShield engine behavior</div></div></div>
+      <div class="set-list">
+        <div class="set-card"><div><div class="set-nm">Proxy Intercept</div><div class="set-ds">Route all HTTP/S through CookieShield engine</div></div><label class="tog"><input type="checkbox" id="settingsProxyToggle" onchange="toggleProxy()"/><div class="tog-track"></div></label></div>
+        <div class="set-card"><div><div class="set-nm">Strip Third-Party Cookies</div><div class="set-ds">Remove all cross-origin Set-Cookie headers</div></div><label class="tog"><input type="checkbox" checked/><div class="tog-track"></div></label></div>
+        <div class="set-card"><div><div class="set-nm">Auto-Inject Consent Headers</div><div class="set-ds">Signal DNT and GPC preferences to all sites</div></div><label class="tog"><input type="checkbox" checked/><div class="tog-track"></div></label></div>
+        <div class="set-card"><div><div class="set-nm">DoS Shield</div><div class="set-ds">Detect and auto-block request flood attacks</div></div><label class="tog"><input type="checkbox" checked onchange="document.getElementById('dosShieldToggle').checked=this.checked;toggleDosShield()"/><div class="tog-track"></div></label></div>
+        <div class="set-card"><div><div class="set-nm">Block Fingerprint Scripts</div><div class="set-ds">Neutralize canvas/WebGL fingerprinting attempts</div></div><label class="tog"><input type="checkbox"/><div class="tog-track"></div></label></div>
+        <div class="set-card"><div><div class="set-nm">HTTPS Enforcement</div><div class="set-ds">Force HTTPS on all proxied connections</div></div><label class="tog"><input type="checkbox" checked/><div class="tog-track"></div></label></div>
+      </div>
+    </section>
+
+    <!-- ═══ ABOUT ═══ -->
+    <section class="page" id="page-about">
+      <div class="ph"><div><div class="ph-tag">// system.info</div><div class="ph-title">About</div><div class="ph-sub">LowKeyPrivate — Universal Consent Manager</div></div></div>
+      <div class="about-grid">
+        <div class="about-item"><div class="about-ico g"></div><div><div class="about-nm">Proxy Intercept</div><div class="about-ds">Transparent proxy between browser and web. Every HTTP/S request flows through for inspection.</div></div></div>
+        <div class="about-item"><div class="about-ico r"></div><div><div class="about-nm">Cookie Classification</div><div class="about-ds">Set-Cookie headers classified. Tracking & ad cookies stripped based on your mode.</div></div></div>
+        <div class="about-item"><div class="about-ico b"></div><div><div class="about-nm">Consent Injection</div><div class="about-ds">Preferences signaled via DNT, GPC, and synthetic consent headers — legally.</div></div></div>
+        <div class="about-item"><div class="about-ico a">⚡</div><div><div class="about-nm">DoS Shield</div><div class="about-ds">Real-time flood detection and rate limiting. Auto-blocks hosts exceeding configurable req/s thresholds.</div></div></div>
+        <div class="stack">STACK → Python 3.12 + FastAPI &nbsp;|&nbsp; mitmproxy 10.x &nbsp;|&nbsp; LowKeyPrivate Engine v1.0.0<br/>LICENSE → MIT &nbsp;|&nbsp; All processing is local. Zero telemetry. No data leaves your machine.</div>
+      </div>
+    </section>
+
+    <!-- ═══ ANALYTICS ═══ -->
+    <section class="page" id="page-analytics">
+      <div class="ph">
+        <div>
+          <div class="ph-tag"></div>
+          <div class="ph-title">Analytics</div>
+          <div class="ph-sub">Session-level privacy protection insights</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+          <div class="period-tabs">
+            <button class="ptab active" onclick="setAnalyticsPeriod('session',this)">Session</button>
+            <button class="ptab" onclick="setAnalyticsPeriod('hour',this)">1H</button>
+            <button class="ptab" onclick="setAnalyticsPeriod('all',this)">All</button>
+          </div>
+        </div>
+      </div>
+      <div class="an-kpi-row">
+        <div class="sc g"><div class="sc-tag">Cookies Blocked</div><div class="sc-val" id="anKpiBlocked">—</div><div class="sc-sub">Session total</div></div>
+        <div class="sc r"><div class="sc-tag">Trackers Poisoned</div><div class="sc-val" id="anKpiPoisoned">—</div><div class="sc-sub">Outbound neutralized</div></div>
+        <div class="sc b"><div class="sc-tag">Sites Visited</div><div class="sc-val" id="anKpiSites">—</div><div class="sc-sub">Unique domains</div></div>
+        <div class="sc" style="border-color:rgba(255,176,59,0.25);">
+          <div class="sc-tag" style="color:#cbd5e1;">Privacy Score</div>
+          <div class="sc-val" id="anKpiScore" style="color:var(--amber);text-shadow:0 0 24px rgba(255,176,59,0.5);">—</div>
+          <div class="sc-sub" id="anKpiGrade">Calculating…</div>
+        </div>
+      </div>
+      <div class="an-body">
+        <div class="an-card">
+          <div class="an-card-head">
+            <span class="an-card-title">Privacy Score</span>
+            <div class="live-chip"><div class="live-pip"></div>Live</div>
+          </div>
+          <div class="score-wrap">
+            <div class="score-ring-wrap">
+              <svg width="90" height="90" viewBox="0 0 90 90">
+                <circle class="score-ring-bg" cx="45" cy="45" r="38"/>
+                <circle class="score-ring-fg" id="scoreRingFg" cx="45" cy="45" r="38" stroke-dasharray="238.76" stroke-dashoffset="238.76"/>
+              </svg>
+              <div class="score-num">
+                <span class="score-val" id="scoreRingVal">—</span>
+                <span class="score-lbl">/100</span>
+              </div>
+            </div>
+            <div class="score-info">
+              <div class="score-grade" id="scoreGradeText">—</div>
+              <div class="score-desc" id="scoreDesc">Waiting for traffic data…</div>
+              <div class="score-tags" id="scoreTags"></div>
+            </div>
+          </div>
+          <div class="reach-grid">
+            <div class="reach-cell">
+              <div class="reach-val" id="rBlocked" style="color:var(--glow);">0</div>
+              <div class="reach-lbl">Blocked</div>
+              <div class="reach-delta dn" id="rBlockedPct">—</div>
+            </div>
+            <div class="reach-cell">
+              <div class="reach-val" id="rPoisoned" style="color:var(--red);">0</div>
+              <div class="reach-lbl">Poisoned</div>
+              <div class="reach-delta up" id="rPoisonedPct">—</div>
+            </div>
+            <div class="reach-cell">
+              <div class="reach-val" id="rSandboxed" style="color:var(--blue);">0</div>
+              <div class="reach-lbl">Sandboxed</div>
+              <div class="reach-delta" style="color:var(--text-fp);" id="rSandboxedPct">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="an-card">
+          <div class="an-card-head">
+            <span class="an-card-title">Action Breakdown</span>
+            <span style="font-size:9px;color:var(--text-fp);">By cookie fate</span>
+          </div>
+          <div class="an-card-body">
+            <div class="donut-wrap">
+              <canvas class="donut-canvas" id="donutChart" width="110" height="110"></canvas>
+              <div class="donut-legend" id="donutLegend"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="an-body">
+        <div class="an-card">
+          <div class="an-card-head">
+            <span class="an-card-title">Block Rate — Timeline</span>
+            <span style="font-size:9px;color:var(--text-fp);">Last 30 samples</span>
+          </div>
+          <div class="an-card-body" style="padding:10px 14px;">
+            <canvas class="an-chart" id="timelineChart"></canvas>
+          </div>
+        </div>
+        <div class="an-card">
+          <div class="an-card-head">
+            <span class="an-card-title">Activity Heatmap</span>
+            <span style="font-size:9px;color:var(--text-fp);">Blocks per hour-of-day</span>
+          </div>
+          <div class="an-card-body">
+            <div class="heatmap-grid" id="heatmapGrid"></div>
+            <div class="hm-labels" id="heatmapLabels"></div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:9px;color:var(--text-fp);">
+              <span>Low</span>
+              <div style="flex:1;height:3px;border-radius:2px;background:linear-gradient(90deg,rgba(0,255,136,0.08),rgba(0,255,136,0.85));"></div>
+              <span>High</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="an-body">
+        <div class="an-card">
+          <div class="an-card-head">
+            <span class="an-card-title">Top Sites by Tracker Load</span>
+            <span style="font-size:9px;color:var(--text-fp);">Blocked + poisoned events</span>
+          </div>
+          <div id="topSitesList" style="max-height:220px;overflow-y:auto;"></div>
+        </div>
+        <div class="an-card">
+          <div class="an-card-head">
+            <span class="an-card-title">Top Blocked Trackers</span>
+            <span style="font-size:9px;color:var(--text-fp);">By cookie name</span>
+          </div>
+          <div class="an-card-body" id="trackerBreakdown" style="padding:10px 14px;"></div>
+        </div>
+      </div>
+      <div class="an-card">
+        <div class="an-card-head">
+          <span class="an-card-title">Privacy Insights</span>
+          <span style="font-size:9px;color:var(--text-fp);">Auto-generated from session data</span>
+        </div>
+        <div class="an-card-body">
+          <div class="insight-strip" id="insightStrip"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══ CANVAS PARTICLE MESH ══ */
+(function(){
+  const cv=document.getElementById('bgCanvas');
+  const cx=cv.getContext('2d');
+  let W,H,mouse={x:-999,y:-999},pts=[],raf;
+  const N=50,CD=125,MD=155;
+  function resize(){W=cv.width=window.innerWidth;H=cv.height=window.innerHeight;}
+  function mkPt(){return{x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.28,vy:(Math.random()-.5)*.28,r:Math.random()*1.4+.4};}
+  function d(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+  function init(){resize();pts=Array.from({length:N},mkPt);}
+  function draw(){
+    cx.clearRect(0,0,W,H);
+    for(const p of pts){p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;}
+    for(let i=0;i<pts.length;i++){
+      for(let j=i+1;j<pts.length;j++){
+        const dd=d(pts[i],pts[j]);
+        if(dd<CD){cx.strokeStyle=`rgba(0,255,136,${(1-dd/CD)*.13})`;cx.lineWidth=.45;cx.beginPath();cx.moveTo(pts[i].x,pts[i].y);cx.lineTo(pts[j].x,pts[j].y);cx.stroke();}
+      }
+      const dm=d(pts[i],mouse);
+      if(dm<MD){const al=(1-dm/MD)*.5;cx.strokeStyle=`rgba(0,255,136,${al})`;cx.lineWidth=.7;cx.beginPath();cx.moveTo(pts[i].x,pts[i].y);cx.lineTo(mouse.x,mouse.y);cx.stroke();}
+    }
+    for(const p of pts){
+      const dm=d(p,mouse),gl=dm<MD?(1-dm/MD):0;
+      cx.beginPath();cx.arc(p.x,p.y,p.r+gl*1.8,0,Math.PI*2);cx.fillStyle=`rgba(0,255,136,${.2+gl*.55})`;cx.fill();
+      if(gl>.35){cx.beginPath();cx.arc(p.x,p.y,p.r+gl*4,0,Math.PI*2);cx.fillStyle=`rgba(0,255,136,${gl*.08})`;cx.fill();}
+    }
+    if(mouse.x>0){const g=cx.createRadialGradient(mouse.x,mouse.y,0,mouse.x,mouse.y,90);g.addColorStop(0,'rgba(0,255,136,0.07)');g.addColorStop(1,'transparent');cx.beginPath();cx.arc(mouse.x,mouse.y,90,0,Math.PI*2);cx.fillStyle=g;cx.fill();}
+    raf=requestAnimationFrame(draw);
+  }
+  window.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;});
+  window.addEventListener('resize',resize);
+  init();draw();
+})();
+
+/* ══ CLOCK ══ */
+function tickClock(){
+  const n=new Date();
+  document.getElementById('sysClock').textContent=[n.getHours(),n.getMinutes(),n.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');
+}
+setInterval(tickClock,1000);tickClock();
+
+const API_URL='http://127.0.0.1:5000/api';
+let appState={};
+
+async function loadState(){
+  try{
+    const res=await fetch(`${API_URL}/state`);
+    appState=await res.json();
+    renderAll();
+  }catch(err){
+    console.error("Engine offline — retrying…",err);
+    setTimeout(loadState,2000);
+  }
+}
+
+function renderAll(){renderStats();renderMode();renderSites();renderProxy();renderActivity();updateHUD();renderSandboxes();renderAnalytics();updateDosFromState();}
+
+/* ══════════════════════════════════════════════
+   DOS SHIELD ENGINE
+   ══════════════════════════════════════════════ */
+const DOS = {
+  enabled:       true,
+  floodThresh:   50,    // req/s to trigger flood
+  warnThresh:    20,    // req/s to warn
+  blockDuration: 30,    // seconds
+  rateWindow:    5,     // rolling window for rate calc
+
+  // Internal tracking
+  hostRequests:  {},    // host -> [timestamp, ...]
+  hostBlocked:   {},    // host -> unblock_timestamp
+  rpsHistory:    [],    // global rps time series (max 60)
+  prevTotalReqs: 0,
+  currentRps:    0,
+  peakRps:       0,
+  floodsDetected:0,
+  hostsAutoBlocked:0,
+  MAX_RPS_HISTORY: 60,
+};
+
+function dosTs(){
+  const n=new Date();
+  return [n.getHours(),n.getMinutes(),n.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');
+}
+
+function dosLog(cls, msg){
+  const body=document.getElementById('dosLogBody');
+  if(!body)return;
+  const line=document.createElement('span');
+  line.className='dos-log-line '+cls;
+  line.innerHTML=`<span class="dos-log-ts">[${dosTs()}]</span>${msg}`;
+  body.appendChild(line);
+  while(body.children.length>300)body.removeChild(body.firstChild);
+  body.scrollTop=body.scrollHeight;
+}
+
+function clearDosLog(){
+  const body=document.getElementById('dosLogBody');
+  if(body)body.innerHTML='';
+  dosLog('ok','[LOG] Cleared');
+}
+
+function toggleDosShield(){
+  DOS.enabled=document.getElementById('dosShieldToggle').checked;
+  const status=document.getElementById('dosShieldStatus');
+  const title=document.getElementById('dosShieldTitle');
+  const sub=document.getElementById('dosShieldSub');
+  const ico=document.getElementById('dosShieldIco');
+  if(DOS.enabled){
+    status.textContent='PROTECTED';status.className='dos-shield-status';
+    title.textContent='DoS Shield Active';
+    sub.textContent='Monitoring request rates — no floods detected';
+    dosLog('ok','[SHIELD] DoS protection ENABLED');
+    showToast('DoS Shield ACTIVATED');
+  }else{
+    status.textContent='INACTIVE';status.className='dos-shield-status inactive';
+    title.textContent='DoS Shield Disabled';
+    sub.textContent='Request flood detection is OFF — traffic unmonitored';
+    dosLog('warn','[SHIELD] DoS protection DISABLED — traffic unmonitored');
+    showToast('DoS Shield DEACTIVATED');
+  }
+}
+
+function updateSlider(name, val, unit){
+  document.getElementById('val'+name).textContent=val;
+  const slider=document.getElementById('slider'+name);
+  const min=parseFloat(slider.min),max=parseFloat(slider.max),v=parseFloat(val);
+  const pct=((v-min)/(max-min)*100).toFixed(1)+'%';
+  slider.style.setProperty('--pct',pct);
+  // Apply to DOS config
+  if(name==='FloodThresh') DOS.floodThresh=parseInt(val);
+  if(name==='BlockDuration') DOS.blockDuration=parseInt(val);
+  if(name==='WarnThresh') DOS.warnThresh=parseInt(val);
+  if(name==='RateWindow') DOS.rateWindow=parseInt(val);
+  dosLog('ok',`[CONFIG] ${name} set to ${val}${unit}`);
+}
+
+// Called every 2s when state polls
+function updateDosFromState(){
+  if(!DOS.enabled)return;
+
+  const totalReqs = (appState.stats||{}).requests_inspected||0;
+  const delta = totalReqs - DOS.prevTotalReqs;
+  DOS.prevTotalReqs = totalReqs;
+
+  // Approximate RPS (delta over ~2s poll interval)
+  const rps = Math.round(delta / 2);
+  DOS.currentRps = rps;
+  if(rps > DOS.peakRps) DOS.peakRps = rps;
+
+  // Store history
+  DOS.rpsHistory.push(rps);
+  if(DOS.rpsHistory.length > DOS.MAX_RPS_HISTORY) DOS.rpsHistory.shift();
+
+  // Per-host rate tracking derived from recent_activity
+  _updateHostRates();
+
+  // Global flood detection
+  if(rps >= DOS.floodThresh){
+    DOS.floodsDetected++;
+    _triggerGlobalFloodAlert(rps);
+  }
+
+  // Render everything
+  _renderDosKpis();
+  _renderDosThreatMeter(rps);
+  _renderDosRpsChart();
+  _renderDosHostTable();
+  _renderDosTopbarAlert(rps);
+}
+
+function _updateHostRates(){
+  const now = Date.now();
+  const windowMs = DOS.rateWindow * 1000;
+  const acts = appState.recent_activity || [];
+
+  // Tally recent requests per host using recent_activity as proxy
+  const hostCounts = {};
+  for(const a of acts){
+    if(!a.site)continue;
+    hostCounts[a.site] = (hostCounts[a.site]||0)+1;
+  }
+
+  // Update DOS host tracking
+  for(const [host, count] of Object.entries(hostCounts)){
+    if(!DOS.hostRequests[host]) DOS.hostRequests[host]={count:0,rps:0,total:0};
+    const prev = DOS.hostRequests[host];
+    const rps = Math.max(0, Math.round(count / Math.max(1, DOS.rateWindow)));
+    prev.rps = rps;
+    prev.total = count;
+    prev.count = count;
+
+    // Flood check per host
+    const isTrusted = (appState.trusted_sites||[]).includes(host);
+    const exemptTrusted = document.getElementById('dosExemptTrusted')?.checked;
+    if(exemptTrusted && isTrusted) continue;
+
+    if(rps >= DOS.floodThresh && !DOS.hostBlocked[host]){
+      _blockHost(host, rps);
+    } else if(rps >= DOS.warnThresh && rps < DOS.floodThresh){
+      dosLog('warn',`[WARN] High rate from ${host} — ${rps} req/s (threshold: ${DOS.floodThresh})`);
+    }
+  }
+}
+
+function _blockHost(host, rps){
+  DOS.hostBlocked[host] = Date.now() + (DOS.blockDuration * 1000);
+  DOS.floodsDetected++;
+  DOS.hostsAutoBlocked++;
+
+  dosLog('flood',`[FLOOD] ⚡ ATTACK DETECTED — ${host} @ ${rps} req/s`);
+  dosLog('block',`[BLOCK] Auto-blocking ${host} for ${DOS.blockDuration}s`);
+
+  // Flash the shield bar
+  const bar = document.getElementById('dosShieldBar');
+  if(bar){bar.classList.remove('dos-flash');void bar.offsetWidth;bar.classList.add('dos-flash');}
+
+  // Auto-add to blocked sites if toggle is on
+  const autoBlock = document.getElementById('dosAutoBlock')?.checked;
+  if(autoBlock){
+    fetch(`${API_URL}/trust`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({site:host,action:'block'})})
+      .then(()=>{ appState.blocked_sites=appState.blocked_sites||[]; if(!appState.blocked_sites.includes(host))appState.blocked_sites.push(host); renderSites(); });
+  }
+
+  // Topbar alert badge
+  document.getElementById('dosNavBadge').classList.add('show');
+  showToast(`⚡ DoS FLOOD: ${host} blocked`);
+}
+
+function _triggerGlobalFloodAlert(rps){
+  const sub = document.getElementById('dosShieldSub');
+  if(sub) sub.textContent = `⚡ FLOOD DETECTED — ${rps} req/s exceeds threshold of ${DOS.floodThresh} req/s`;
+  dosLog('flood',`[GLOBAL] Request surge: ${rps} req/s`);
+}
+
+function _renderDosKpis(){
+  _setText('dosKpiFloods',   DOS.floodsDetected);
+  _setText('dosKpiBlocked',  DOS.hostsAutoBlocked);
+  _setText('dosKpiPeakRps',  DOS.peakRps);
+  _setText('dosKpiCurrRps',  DOS.currentRps);
+}
+
+function _renderDosThreatMeter(rps){
+  const pct = Math.min(100, Math.round((rps / DOS.floodThresh) * 100));
+  const fill = document.getElementById('dosThreatFill');
+  const val  = document.getElementById('dosThreatVal');
+  const lvl  = document.getElementById('dosThreatLevel');
+  if(!fill)return;
+
+  let color, label, bg, border;
+  if(pct < 30){
+    color='var(--glow)';label='SAFE';bg='rgba(0,255,136,0.1)';border='rgba(0,255,136,0.2)';
+  } else if(pct < 60){
+    color='var(--amber)';label='MODERATE';bg='rgba(255,176,59,0.1)';border='rgba(255,176,59,0.25)';
+  } else if(pct < 90){
+    color='var(--red)';label='HIGH';bg='rgba(255,59,92,0.12)';border='rgba(255,59,92,0.3)';
+  } else {
+    color='var(--purple)';label='CRITICAL';bg='rgba(176,111,255,0.15)';border='rgba(176,111,255,0.35)';
+  }
+
+  fill.style.width=pct+'%';fill.style.background=color;
+  val.textContent=pct+'%';val.style.color=color;
+  lvl.textContent=label;
+  lvl.style.cssText=`background:${bg};color:${color};border:1px solid ${border};font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;border-radius:100px;font-weight:700;`;
+}
+
+function _renderDosRpsChart(){
+  const canvas = document.getElementById('dosRpsChart');
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.offsetWidth||canvas.width||600;
+  const H=canvas.height||80;
+  canvas.width=W;
+  ctx.clearRect(0,0,W,H);
+
+  const data=DOS.rpsHistory;
+  if(data.length<2){
+    ctx.fillStyle='rgba(255,255,255,0.04)';ctx.font='10px Montserrat,sans-serif';
+    ctx.textAlign='center';ctx.fillText('Waiting for traffic…',W/2,H/2);return;
+  }
+
+  const maxV=Math.max(...data,DOS.floodThresh*1.1)||1;
+
+  // Threshold line
+  const threshY=H-(DOS.floodThresh/maxV)*(H-10)-4;
+  ctx.beginPath();ctx.setLineDash([4,4]);
+  ctx.strokeStyle='rgba(255,59,92,0.45)';ctx.lineWidth=1;
+  ctx.moveTo(0,threshY);ctx.lineTo(W,threshY);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Warn line
+  const warnY=H-(DOS.warnThresh/maxV)*(H-10)-4;
+  ctx.beginPath();ctx.setLineDash([2,6]);
+  ctx.strokeStyle='rgba(255,176,59,0.3)';ctx.lineWidth=1;
+  ctx.moveTo(0,warnY);ctx.lineTo(W,warnY);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // RPS area fill
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'rgba(176,111,255,0.35)');
+  grad.addColorStop(1,'rgba(176,111,255,0.02)');
+
+  ctx.beginPath();
+  data.forEach((v,i)=>{
+    const x=(i/(data.length-1))*W;
+    const y=H-(v/maxV)*(H-10)-4;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle='var(--purple)';ctx.lineWidth=1.8;ctx.stroke();
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();
+  ctx.fillStyle=grad;ctx.fill();
+
+  // Dots at flood events
+  data.forEach((v,i)=>{
+    if(v>=DOS.floodThresh){
+      const x=(i/(data.length-1))*W;
+      const y=H-(v/maxV)*(H-10)-4;
+      ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);
+      ctx.fillStyle='var(--red)';ctx.fill();
+    }
+  });
+}
+
+function _renderDosHostTable(){
+  const tbody=document.getElementById('dosHostTableBody');
+  if(!tbody)return;
+
+  const hosts=Object.entries(DOS.hostRequests)
+    .filter(([,d])=>d.total>0)
+    .sort((a,b)=>b[1].rps-a[1].rps)
+    .slice(0,10);
+
+  if(hosts.length===0){
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-fp);padding:28px;letter-spacing:1px;font-size:10px;">No traffic detected yet</td></tr>';
+    return;
+  }
+
+  const now=Date.now();
+  tbody.innerHTML=hosts.map(([host,d])=>{
+    const rps=d.rps;
+    const isBlocked=DOS.hostBlocked[host]&&DOS.hostBlocked[host]>now;
+    const isTrusted=(appState.trusted_sites||[]).includes(host);
+
+    let rpsCls='safe',threat='low',threatLabel='LOW';
+    if(rps>=DOS.floodThresh){rpsCls='danger';threat='critical';threatLabel='CRITICAL';}
+    else if(rps>=DOS.warnThresh){rpsCls='warn';threat='high';threatLabel='HIGH';}
+    else if(rps>5){rpsCls='warn';threat='medium';threatLabel='MEDIUM';}
+
+    const blockLabel = isBlocked
+      ? '<span class="dos-auto-block-btn blocked-already">BLOCKED</span>'
+      : isTrusted
+        ? '<span style="font-size:9px;color:var(--glow);letter-spacing:1px;">TRUSTED</span>'
+        : `<button class="dos-auto-block-btn" onclick="dosManualBlock('${host}')">BLOCK</button>`;
+
+    return `<tr>
+      <td><div class="dos-host-name">${host}</div><div class="dos-host-sub">${d.total} total reqs</div></td>
+      <td><span class="dos-rps ${rpsCls}">${rps}</span></td>
+      <td style="color:var(--text-dim);">${d.total}</td>
+      <td><span class="dos-threat-pill ${threat}">${threatLabel}</span></td>
+      <td>${blockLabel}</td>
+    </tr>`;
+  }).join('');
+}
+
+function dosManualBlock(host){
+  DOS.hostBlocked[host]=Date.now()+(DOS.blockDuration*1000);
+  DOS.hostsAutoBlocked++;
+  dosLog('block',`[BLOCK] Manual block: ${host}`);
+  fetch(`${API_URL}/trust`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({site:host,action:'block'})})
+    .then(()=>{if(appState.blocked_sites&&!appState.blocked_sites.includes(host))appState.blocked_sites.push(host);renderSites();});
+  _renderDosHostTable();
+  _renderDosKpis();
+  showToast(`${host} manually blocked`);
+}
+
+function _renderDosTopbarAlert(rps){
+  const pill=document.getElementById('dosAlertPill');
+  const badge=document.getElementById('dosNavBadge');
+  if(!pill)return;
+  if(rps>=DOS.floodThresh){
+    pill.classList.add('visible');
+    badge.classList.add('show');
+    badge.textContent='!';
+  } else {
+    pill.classList.remove('visible');
+    if(DOS.floodsDetected===0) badge.classList.remove('show');
+  }
+}
+
+/* ══ SANDBOX ══ */
+function renderSandboxes(){
+  const sandboxes=appState.sandboxes||{};
+  const hosts=Object.keys(sandboxes);
+  const totalCookies=hosts.reduce((s,h)=>s+(sandboxes[h].cookie_count||0),0);
+  const el=(id)=>document.getElementById(id);
+  if(el('sbStatActive'))    el('sbStatActive').textContent=hosts.length;
+  if(el('sbStatCookies'))   el('sbStatCookies').textContent=totalCookies;
+  if(el('sbStatDestroyed')) el('sbStatDestroyed').textContent=(appState.stats||{}).sandboxes_destroyed||0;
+  const grid=el('sandboxGrid');
+  if(!grid)return;
+  if(hosts.length===0){
+    grid.innerHTML='<div class="sb-empty"><span class="sb-empty-ico">⬢</span>NO ACTIVE SANDBOXES<br><span style="font-size:10px;opacity:0.6">Browse any site through the proxy — a sandbox will appear here automatically</span></div>';
+    return;
+  }
+  grid.innerHTML=hosts.map(host=>{
+    const sb=sandboxes[host];
+    return`<div class="sb-card" id="sbcard-${CSS.escape(host)}">
+      <div class="sb-card-head"><span class="sb-host" title="${host}">${host}</span><span class="sb-status"><span class="sb-pip"></span>LIVE</span></div>
+      <div class="sb-body">
+        <div class="sb-row"><span class="sb-lbl">COOKIES HELD</span><span class="sb-val cookies">${sb.cookie_count}</span></div>
+        <div class="sb-row"><span class="sb-lbl">CACHE ENTRIES</span><span class="sb-val cache">${sb.cache_count}</span></div>
+        <div class="sb-row"><span class="sb-lbl">CREATED</span><span class="sb-ts">${sb.created_at}</span></div>
+        <div class="sb-row"><span class="sb-lbl">LAST SEEN</span><span class="sb-ts">${sb.last_seen}</span></div>
+      </div>
+      <div class="sb-foot-bar"><button class="btn-destroy" onclick="destroySandbox('${host}')">DESTROY SANDBOX</button></div>
+    </div>`;
+  }).join('');
+}
+
+async function destroySandbox(host){
+  const res=await fetch(`${API_URL}/sandbox/destroy`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host})});
+  const data=await res.json();
+  if(data.destroyed){showToast(`Sandbox destroyed: ${host}`);const card=document.getElementById('sbcard-'+CSS.escape(host));if(card)card.remove();if(appState.sandboxes)delete appState.sandboxes[host];renderSandboxes();}
+}
+
+async function destroyAllSandboxes(){
+  const res=await fetch(`${API_URL}/sandbox/destroy_all`,{method:'POST'});
+  const data=await res.json();
+  showToast(`${data.destroyed} sandbox${data.destroyed!==1?'es':''} destroyed`);
+  if(appState.sandboxes)appState.sandboxes={};renderSandboxes();
+}
+
+window.addEventListener('beforeunload',()=>{try{navigator.sendBeacon(`${API_URL}/sandbox/destroy_all`);}catch(_){}});
+
+/* ══ SPARKLINES ══ */
+const spkH={b:[],t:[],r:[]};
+function drawSpk(id,data,col){
+  const cv=document.getElementById(id);if(!cv||data.length<2)return;
+  const cx=cv.getContext('2d'),W=cv.width,H=cv.height;
+  cx.clearRect(0,0,W,H);
+  const mn=Math.min(...data),mx=Math.max(...data),rng=mx-mn||1;
+  cx.beginPath();data.forEach((v,i)=>{const x=(i/(data.length-1))*W,y=H-((v-mn)/rng)*H;i===0?cx.moveTo(x,y):cx.lineTo(x,y);});
+  cx.strokeStyle=col;cx.lineWidth=1.5;cx.stroke();
+}
+function renderStats(){
+  if(!appState.stats)return;
+  const s=appState.stats;
+  document.getElementById('statBlocked').textContent=s.cookies_blocked.toLocaleString();
+  document.getElementById('statTrackers').textContent=s.trackers_neutralized.toLocaleString();
+  document.getElementById('statRequests').textContent=s.requests_inspected.toLocaleString();
+  spkH.b.push(s.cookies_blocked);if(spkH.b.length>20)spkH.b.shift();
+  spkH.t.push(s.trackers_neutralized);if(spkH.t.length>20)spkH.t.shift();
+  spkH.r.push(s.requests_inspected);if(spkH.r.length>20)spkH.r.shift();
+  drawSpk('spkB',spkH.b,'#00ff88');drawSpk('spkT',spkH.t,'#ff3b5c');drawSpk('spkR',spkH.r,'#38b6ff');
+}
+
+/* ══ TERMINAL SSE ══ */
+function ts(){const n=new Date();return[n.getHours(),n.getMinutes(),n.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');}
+function startTerminal(){
+  const body=document.getElementById('termBody');if(!body)return;
+  function appendLine(cls,text){
+    const wrap=document.createElement('span');wrap.className='tl '+cls;
+    const tsEl=document.createElement('span');tsEl.className='tl-ts';tsEl.textContent='['+ts()+'] ';
+    wrap.appendChild(tsEl);wrap.appendChild(document.createTextNode(text));
+    body.appendChild(wrap);while(body.children.length>250)body.removeChild(body.firstChild);body.scrollTop=body.scrollHeight;
+  }
+  appendLine('sys','[BOOT] CookieShield Engine connecting...');
+  function connectSSE(){
+    const es=new EventSource('http://127.0.0.1:5000/api/logs');
+    es.onopen=()=>appendLine('info','[BOOT] SSE log stream connected');
+    es.onmessage=(event)=>{try{const data=JSON.parse(event.data);appendLine(data.level,data.message);}catch(_){}};
+    es.onerror=()=>{appendLine('sys','[WARN] SSE stream error. Retrying in 3s...');es.close();setTimeout(connectSSE,3000);};
+  }
+  setTimeout(connectSSE,1500);
+}
+startTerminal();
+
+/* ══ HUD ══ */
+function updateHUD(){
+  const net=(appState&&appState.network)?appState.network:null;
+  const down=net?net.down_mbps:0;
+  document.getElementById('hudDown').textContent=down.toFixed(1);
+  document.getElementById('bDown').style.width=Math.min(100,(down/100)*100)+'%';
+  const up=net?net.up_mbps:0;
+  document.getElementById('hudUp').textContent=up.toFixed(1);
+  document.getElementById('bUp').style.width=Math.min(100,(up/20)*100)+'%';
+  const ping=(net&&net.ping_ms>0)?net.ping_ms:null;
+  document.getElementById('hudPing').textContent=ping!==null?Math.round(ping):'—';
+  document.getElementById('bPing').style.width=ping!==null?Math.max(5,100-(ping/300)*100)+'%':'5%';
+}
+
+/* ══ MODE ══ */
+function renderMode(){
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  const el=document.getElementById('mode-'+appState.global_mode);if(el)el.classList.add('active');
+}
+
+/* ══ SITES ══ */
+function renderSites(){
+  const tl=document.getElementById('trustedList'),bl=document.getElementById('blockedList');if(!tl||!bl)return;
+  tl.innerHTML=(appState.trusted_sites||[]).map(s=>`<div class="stag"><span style="color:var(--glow)">✓</span>&nbsp;${s}<button class="rm" onclick="removeSite('${s}','trust')">✕</button></div>`).join('');
+  bl.innerHTML=(appState.blocked_sites||[]).map(s=>`<div class="stag"><span style="color:var(--red)">✕</span>&nbsp;${s}<button class="rm" onclick="removeSite('${s}','block')">✕</button></div>`).join('');
+}
+
+/* ══ ACTIVITY ══ */
+function renderActivity(){
+  const el=document.getElementById('activityListFull');if(!el)return;
+  const items=appState.recent_activity||[];
+  if(items.length===0){el.innerHTML='<div style="padding:28px;text-align:center;color:var(--text-fp);font-size:11px;letter-spacing:1px;">NO ACTIVITY YET — WAITING FOR TRAFFIC</div>';return;}
+  el.innerHTML=items.map(item=>{
+    const badgeCls=item.action==='blocked'?'blocked':item.action==='poisoned'?'essential_only':'allowed';
+    const label=item.action==='blocked'?'BLOCKED':item.action==='poisoned'?'POISONED':'ALLOWED';
+    return`<div class="act-item"><div><div class="act-site">${item.site}</div><div class="act-cat">${item.cookie||'—'}</div></div><span class="badge ${badgeCls}">${label}</span><div class="act-time">${item.time}</div></div>`;
+  }).join('');
+}
+
+/* ══ PROXY ══ */
+function renderProxy(){
+  const on=appState.proxy_active;
+  document.getElementById('proxyPill').className='proxy-pill'+(on?' on':'');
+  document.getElementById('pillLabel').textContent=on?'PROXY ACTIVE':'PROXY OFF';
+  const st=document.getElementById('settingsProxyToggle');if(st)st.checked=on;
+}
+
+/* ══ API ACTIONS ══ */
+async function setMode(mode){
+  await fetch(`${API_URL}/mode`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode})});
+  appState.global_mode=mode;renderMode();
+  showToast('Mode: '+{reject_all:'Reject All',essential_only:'Essential Only',custom:'Custom Rules'}[mode]);
+}
+async function toggleProxy(){
+  const res=await fetch(`${API_URL}/proxy`,{method:'POST'});
+  const data=await res.json();appState.proxy_active=data.active;renderProxy();
+  showToast('Proxy '+(data.active?'ACTIVATED':'DEACTIVATED'));
+}
+async function addSite(action){
+  const inp=document.getElementById('siteInput');const site=inp.value.trim();if(!site)return;
+  const res=await fetch(`${API_URL}/trust`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({site,action})});
+  const data=await res.json();appState.trusted_sites=data.trusted;appState.blocked_sites=data.blocked;
+  renderSites();inp.value='';showToast(site+(action==='trust'?' → TRUSTED':' → BLOCKED'));
+}
+async function removeSite(site,type){
+  const res=await fetch(`${API_URL}/trust`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({site,action:type==='trust'?'remove_trust':'remove_block'})});
+  const data=await res.json();appState.trusted_sites=data.trusted;appState.blocked_sites=data.blocked;
+  renderSites();showToast(site+' removed');
+}
+
+function showPage(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  // Clear dos badge when visiting the page
+  if(id==='dos') document.getElementById('dosNavBadge').classList.remove('show');
+}
+
+let toastT;
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+/* ══ ANALYTICS ══ */
+const AN={period:'session',timeBlocked:[],timePoisoned:[],timeRequests:[],MAX_SAMPLES:60,byHost:{},byTracker:{},byHour:new Array(24).fill(0),prevBlocked:0,prevPoisoned:0};
+let _anPeriod='session';
+
+function setAnalyticsPeriod(p,el){_anPeriod=p;document.querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderAnalytics();}
+function renderAnalytics(){if(!appState||!appState.stats)return;_buildAnalyticsData();_renderKPIs();_renderScoreRing();_renderDonut();_renderTimeline();_renderHeatmap();_renderTopSites();_renderTrackerBreakdown();_renderInsights();}
+
+function _buildAnalyticsData(){
+  const s=appState.stats||{};const now=Date.now();
+  AN.timeBlocked.push({t:now,v:s.cookies_blocked||0});AN.timePoisoned.push({t:now,v:s.trackers_neutralized||0});AN.timeRequests.push({t:now,v:s.requests_inspected||0});
+  if(AN.timeBlocked.length>AN.MAX_SAMPLES)AN.timeBlocked.shift();if(AN.timePoisoned.length>AN.MAX_SAMPLES)AN.timePoisoned.shift();if(AN.timeRequests.length>AN.MAX_SAMPLES)AN.timeRequests.shift();
+  AN.byHost={};AN.byTracker={};
+  const acts=(appState.recent_activity||[]);
+  for(const a of acts){
+    if(!AN.byHost[a.site])AN.byHost[a.site]={blocked:0,poisoned:0,sandboxed:0};
+    if(a.action==='blocked')AN.byHost[a.site].blocked++;
+    if(a.action==='poisoned')AN.byHost[a.site].poisoned++;
+    if(a.action==='sandboxed')AN.byHost[a.site].sandboxed++;
+    if((a.action==='blocked'||a.action==='poisoned')&&a.cookie)AN.byTracker[a.cookie]=(AN.byTracker[a.cookie]||0)+1;
+  }
+  AN.byHour=new Array(24).fill(0);
+  for(const a of appState.recent_activity||[]){if(a.action!=='blocked'&&a.action!=='poisoned')continue;if(a.time){const hr=parseInt(a.time.split(':')[0],10);if(hr>=0&&hr<24)AN.byHour[hr]++;}}
+}
+
+function _renderKPIs(){
+  const s=appState.stats||{};const blocked=s.cookies_blocked||0;const poisoned=s.trackers_neutralized||0;
+  const sites=Object.keys(AN.byHost).length||Object.keys(appState.sandboxes||{}).length;const score=_calcScore();
+  _setText('anKpiBlocked',blocked.toLocaleString());_setText('anKpiPoisoned',poisoned.toLocaleString());_setText('anKpiSites',sites.toLocaleString());_setText('anKpiScore',score);
+  const{grade}=_gradeFromScore(score);_setText('anKpiGrade',grade);
+  const total=blocked+poisoned+_sandboxedCount();
+  _setText('rBlocked',blocked.toLocaleString());_setText('rPoisoned',poisoned.toLocaleString());_setText('rSandboxed',_sandboxedCount().toLocaleString());
+  _setText('rBlockedPct',total?Math.round((blocked/total)*100)+'% of actions':'—');
+  _setText('rPoisonedPct',total?Math.round((poisoned/total)*100)+'% of actions':'—');
+  _setText('rSandboxedPct',total?Math.round((_sandboxedCount()/(total||1))*100)+'% of actions':'—');
+}
+function _sandboxedCount(){return(appState.recent_activity||[]).filter(a=>a.action==='sandboxed').length;}
+function _calcScore(){
+  const s=appState.stats||{};const mode=appState.global_mode||'reject_all';const active=appState.proxy_active;
+  if(!active)return 10;let score=50;
+  if(mode==='reject_all')score+=30;else if(mode==='essential_only')score+=18;else score+=8;
+  const reqs=s.requests_inspected||1;const blocked=s.cookies_blocked||0;const neutral=s.trackers_neutralized||0;
+  const rate=(blocked+neutral)/reqs;score+=Math.min(15,Math.round(rate*40));
+  if((appState.blocked_sites||[]).length===0)score-=3;
+  // DoS shield bonus
+  if(DOS.enabled)score+=5;
+  return Math.max(0,Math.min(100,score));
+}
+function _gradeFromScore(score){
+  if(score>=90)return{grade:'A+',color:'#00ff88',desc:'Excellent — maximum protection active.'};
+  if(score>=80)return{grade:'A',color:'#00ff88',desc:'Strong protection. Most trackers stopped.'};
+  if(score>=70)return{grade:'B+',color:'#38b6ff',desc:'Good protection with minor exposure.'};
+  if(score>=60)return{grade:'B',color:'#38b6ff',desc:'Moderate protection. Consider Reject All mode.'};
+  if(score>=50)return{grade:'C',color:'#ffb03b',desc:'Partial protection. Some trackers are passing through.'};
+  if(score>=30)return{grade:'D',color:'#ff3b5c',desc:'Low protection. Enable proxy and tighten mode.'};
+  return{grade:'F',color:'#ff3b5c',desc:'Proxy is off or in a permissive mode.'};
+}
+function _renderScoreRing(){
+  const score=_calcScore();const{grade,color,desc}=_gradeFromScore(score);const circ=238.76;const offset=circ-(score/100)*circ;
+  const ring=document.getElementById('scoreRingFg');if(ring){ring.style.strokeDashoffset=offset;ring.style.stroke=color;}
+  _setText('scoreRingVal',score);_setStyle('scoreGradeText','color',color);_setText('scoreGradeText',grade);_setText('scoreDesc',desc);
+  const tags=document.getElementById('scoreTags');
+  if(tags){
+    const pills=[];if(appState.proxy_active)pills.push(['PROXY ON',color,'rgba(0,255,136,0.08)']);
+    const mode=appState.global_mode||'';
+    if(mode==='reject_all')pills.push(['REJECT ALL','#ff3b5c','rgba(255,59,92,0.1)']);
+    else if(mode==='essential_only')pills.push(['ESSENTIAL','#38b6ff','rgba(56,182,255,0.1)']);
+    else pills.push(['CUSTOM','#ffb03b','rgba(255,176,59,0.1)']);
+    if(DOS.enabled)pills.push(['DOS SHIELD','var(--purple)','rgba(176,111,255,0.1)']);
+    const sbCount=Object.keys(appState.sandboxes||{}).length;
+    if(sbCount>0)pills.push([`${sbCount} SANDBOX${sbCount>1?'ES':''}`, '#38b6ff','rgba(56,182,255,0.1)']);
+    tags.innerHTML=pills.map(([t,c,bg])=>`<span class="score-tag" style="color:${c};background:${bg};border:1px solid ${c}33;">${t}</span>`).join('');
+  }
+}
+function _renderDonut(){
+  const canvas=document.getElementById('donutChart');if(!canvas)return;
+  const ctx=canvas.getContext('2d');const W=canvas.width,H=canvas.height;ctx.clearRect(0,0,W,H);
+  const blocked=(appState.stats||{}).cookies_blocked||0;const poisoned=(appState.stats||{}).trackers_neutralized||0;const sandboxed=_sandboxedCount();const total=blocked+poisoned+sandboxed||1;
+  const segments=[{label:'Blocked',value:blocked,color:'#00ff88'},{label:'Poisoned',value:poisoned,color:'#ff3b5c'},{label:'Sandboxed',value:sandboxed,color:'#38b6ff'}].filter(s=>s.value>0);
+  const cx=W/2,cy=H/2,R=42,r=26;let angle=-Math.PI/2;
+  if(segments.length===0){ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=(R-r);ctx.stroke();}
+  else{for(const seg of segments){const sweep=(seg.value/total)*Math.PI*2;ctx.beginPath();ctx.arc(cx,cy,(R+r)/2,angle,angle+sweep);ctx.strokeStyle=seg.color;ctx.lineWidth=R-r;ctx.globalAlpha=0.85;ctx.stroke();ctx.globalAlpha=1;angle+=sweep;}}
+  const legend=document.getElementById('donutLegend');
+  if(legend){const all=[{label:'Blocked',value:blocked,color:'#00ff88'},{label:'Poisoned',value:poisoned,color:'#ff3b5c'},{label:'Sandboxed',value:sandboxed,color:'#38b6ff'}];
+    legend.innerHTML=all.map(s=>`<div class="dl-row"><span class="dl-dot" style="background:${s.color};box-shadow:0 0 5px ${s.color}66;"></span><span class="dl-lbl">${s.label}</span><span class="dl-val">${s.value.toLocaleString()}</span><span style="font-size:9px;color:var(--text-fp);margin-left:4px;">${total>0?Math.round((s.value/(blocked+poisoned+sandboxed||1))*100):0}%</span></div>`).join('');}
+}
+function _renderTimeline(){
+  const canvas=document.getElementById('timelineChart');if(!canvas)return;
+  const ctx=canvas.getContext('2d');const W=canvas.offsetWidth||canvas.width;const H=canvas.height;canvas.width=W;ctx.clearRect(0,0,W,H);
+  if(AN.timeBlocked.length<2){ctx.fillStyle='rgba(255,255,255,0.05)';ctx.font='10px Montserrat,sans-serif';ctx.textAlign='center';ctx.fillText('Waiting for data…',W/2,H/2);return;}
+  const series=[{data:AN.timeBlocked,color:'#00ff88'},{data:AN.timePoisoned,color:'#ff3b5c'}];
+  const allVals=[...AN.timeBlocked,...AN.timePoisoned].map(d=>d.v);const maxV=Math.max(...allVals)||1;
+  for(const{data,color}of series){
+    if(data.length<2)continue;
+    const grad=ctx.createLinearGradient(0,0,0,H);grad.addColorStop(0,color+'30');grad.addColorStop(1,color+'00');
+    ctx.beginPath();data.forEach((d,i)=>{const x=(i/(data.length-1))*W,y=H-(d.v/maxV)*(H-10)-4;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+    ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.stroke();ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+  }
+}
+function _renderHeatmap(){
+  const grid=document.getElementById('heatmapGrid'),labels=document.getElementById('heatmapLabels');if(!grid||!labels)return;
+  const maxVal=Math.max(...AN.byHour)||1;
+  grid.innerHTML=AN.byHour.map((v,h)=>{const intensity=v/maxVal;const alpha=0.06+intensity*0.82;return`<div class="hm-cell" title="${h}:00 — ${v} blocks" style="background:rgba(0,255,136,${alpha.toFixed(2)});"></div>`;}).join('');
+  labels.innerHTML=AN.byHour.map((_,h)=>`<div class="hm-lbl">${h%6===0?h:''}</div>`).join('');
+}
+function _renderTopSites(){
+  const el=document.getElementById('topSitesList');if(!el)return;
+  const sites=Object.entries(AN.byHost).map(([host,c])=>({host,total:c.blocked+c.poisoned,...c})).sort((a,b)=>b.total-a.total).slice(0,8);
+  if(sites.length===0){el.innerHTML='<div style="padding:24px;text-align:center;color:var(--text-fp);font-size:11px;">No site data yet</div>';return;}
+  const maxTotal=sites[0].total||1;
+  el.innerHTML=sites.map((s,i)=>{const pct=Math.round((s.total/maxTotal)*100);const color=s.total>10?'var(--red)':s.total>3?'var(--amber)':'var(--glow)';
+    return`<div class="site-rank-row"><span class="sr-rank">${i+1}</span><div><div class="sr-host">${s.host}</div><div class="sr-sub">${s.blocked} blocked · ${s.poisoned} poisoned</div><div class="sr-bar-w" style="width:120px;margin-top:4px;"><div class="sr-bar-f" style="width:${pct}%;background:${color};height:3px;border-radius:2px;"></div></div></div><span class="sr-num" style="color:${color};">${s.total}</span></div>`;
+  }).join('');
+}
+function _renderTrackerBreakdown(){
+  const el=document.getElementById('trackerBreakdown');if(!el)return;
+  const trackers=Object.entries(AN.byTracker).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  if(trackers.length===0){el.innerHTML='<div style="text-align:center;color:var(--text-fp);font-size:11px;padding:16px 0;">No tracker data yet</div>';return;}
+  const maxCount=trackers[0][1]||1;
+  const COLORS={'_ga':'#38b6ff','_gid':'#38b6ff','_gcl_au':'#38b6ff','_fbp':'#ff3b5c','bcookie':'#ff3b5c','fr':'#ff3b5c','IDE':'#ffb03b','MUID':'#ffb03b'};
+  el.innerHTML=trackers.map(([name,count])=>{const pct=Math.round((count/maxCount)*100);const color=COLORS[name]||'#00ff88';
+    return`<div class="tracker-row"><span class="tracker-name" title="${name}">${name}</span><div class="tracker-bar-w"><div class="tracker-bar-f" style="width:${pct}%;background:${color};box-shadow:0 0 4px ${color}55;"></div></div><span class="tracker-count" style="color:${color};">${count}</span></div>`;
+  }).join('');
+}
+function _renderInsights(){
+  const el=document.getElementById('insightStrip');if(!el)return;
+  const s=appState.stats||{};const mode=appState.global_mode||'reject_all';
+  const blocked=s.cookies_blocked||0,poison=s.trackers_neutralized||0,reqs=s.requests_inspected||0;
+  const insights=[];
+  const topSite=Object.entries(AN.byHost).sort((a,b)=>(b[1].blocked+b[1].poisoned)-(a[1].blocked+a[1].poisoned))[0];
+  if(topSite)insights.push({text:`<strong>${topSite[0]}</strong> is your top tracker source with <strong>${topSite[1].blocked+topSite[1].poisoned}</strong> interceptions.`});
+  if(reqs>10){const rate=Math.round(((blocked+poison)/reqs)*100);if(rate>15)insights.push({text:`<strong>${rate}%</strong> of inspected requests triggered a privacy action — heavily tracked network.`});else insights.push({ico:'✅',text:`Block rate is <strong>${rate}%</strong>. Sites you're visiting have relatively low tracker density.`});}
+  if(mode!=='reject_all')insights.push({text:`Switching to <strong>Reject All</strong> would block even more non-essential cookies.`});
+  else insights.push({text:`<strong>Reject All</strong> mode is active — maximum protection.`});
+  if(DOS.enabled&&DOS.floodsDetected>0)insights.push({ico:'⚡',text:`DoS Shield intercepted <strong>${DOS.floodsDetected}</strong> flood event${DOS.floodsDetected!==1?'s':''} and auto-blocked <strong>${DOS.hostsAutoBlocked}</strong> host${DOS.hostsAutoBlocked!==1?'s':''}.`});
+  const topTracker=Object.entries(AN.byTracker).sort((a,b)=>b[1]-a[1])[0];
+  if(topTracker)insights.push({text:`Most frequent tracker: <strong>${topTracker[0]}</strong>, seen <strong>${topTracker[1]}</strong> times.`});
+  if(insights.length===0)insights.push({text:'Browse any site through the proxy to start generating privacy insights.'});
+  el.innerHTML=insights.map(ins=>`<div class="insight-item"><span class="insight-ico">${ins.ico}</span><div class="insight-text">${ins.text}</div></div>`).join('');
+}
+function _setText(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
+function _setStyle(id,prop,val){const el=document.getElementById(id);if(el)el.style[prop]=val;}
+
+setTimeout(renderAnalytics,3000);
+
+/* ══ INIT ══ */
+// Initialize slider track fills
+document.querySelectorAll('.dos-slider').forEach(s=>{
+  const min=parseFloat(s.min),max=parseFloat(s.max),v=parseFloat(s.value);
+  const pct=((v-min)/(max-min)*100).toFixed(1)+'%';
+  s.style.setProperty('--pct',pct);
+});
+
+setInterval(loadState,2000);
+loadState();
+</script>
+</body>
+</html>
