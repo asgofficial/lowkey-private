@@ -1,0 +1,49 @@
+name: Build & Release Windows exe
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python deps
+        run: |
+          pip install mitmproxy fastapi uvicorn pydantic pyinstaller
+
+      - name: Build engine.exe with PyInstaller
+        run: |
+          pyinstaller --onefile --name engine engine.py --distpath dist-engine
+
+      - name: Install Node deps
+        run: npm install
+
+      - name: Build Windows installer with electron-builder
+        run: npm run build:win
+
+      - name: Upload exe to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
